@@ -1,6 +1,9 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
 from blogging.models import Category, Post
+from datetime import datetime, timezone, timedelta
+
+
 
 class PostTestCase(TestCase):
     fixtures = ['blogging_test_fixture.json', ]
@@ -27,3 +30,33 @@ class CategoryTestCase(TestCase):
     
     def __str__(self):
         return self.name
+
+class FrontEndTestCase(TestCase):
+    """test views provided in the front-end"""
+    fixtures = ['blogging_test_fixture.json', ]
+
+    def setUp(self):
+        self.now = self.now = datetime.now(timezone.utc)
+        self.timedelta = timedelta(15)
+        author = User.objects.get(pk=1)
+        for count in range(1, 11):
+            post = Post(title="Post %d Title" % count,
+                        text="foo",
+                        author=author)
+            if count < 6:
+                # publish the first five posts
+                pubdate = self.now - self.timedelta * count
+                post.published_date = pubdate
+            post.save()
+    
+    def test_list_only_published(self):
+        resp = self.client.get('/')
+        # the content of the rendered response is always a bytestring
+        resp_text = resp.content.decode(resp.charset)
+        self.assertTrue("Recent Posts" in resp_text)
+        for count in range(1, 11):
+            title = "Post %d Title" % count
+            if count < 6:
+                self.assertContains(resp, title, count=1)
+            else:
+                self.assertNotContains(resp, title)
